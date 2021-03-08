@@ -112,17 +112,21 @@ spec:
         - name: REDIS_HOST
           value: "redis-cip"
         - name: EVENT_CONNECTED_URL
-          value: "https://5d092e8e034e50001401101b.mockapi.io/api/mock/connected"
+          value: "http://wss-external.mocklab.io/connected"
         - name: EVENT_DISCONNECTED_URL
-          value: "https://5d092e8e034e50001401101b.mockapi.io/api/mock/disconnected"
+          value: "http://wss-external.mocklab.io/disconnected"
         - name: EVENT_MESSAGE_URL
-          value: "https://5d092e8e034e50001401101b.mockapi.io/api/mock/message"
+          value: "http://wss-external.mocklab.io/message"
         - name: JWT_SECRET
           value: "n5GySGhWlN9pWQBvmrnmJdKxmw-JTX0lKBSEYpYuOZY"
         - name: SERVER_QUERY
           value: "1"
         - name: JWT_IDENTIFIER
           value: "uid"
+        - name: SHOW_OUTGOING
+          value: "1"
+        - name: SHOW_INCOMMING
+          value: "1"
         ports:
         - containerPort: 8080
         - containerPort: 80
