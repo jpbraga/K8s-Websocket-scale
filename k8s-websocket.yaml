@@ -1,0 +1,241 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    name: websocket-scale
+  name: websocket-scale
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: redis
+  name: redis
+  namespace: websocket-scale
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - image: redis:latest
+        name: redis
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            cpu: 256m
+            memory: 512Mi
+          limits:
+            cpu: 512m
+            memory: 768Mi
+        volumeMounts:
+        - name:  redis-pv-storage
+          mountPath:  /data
+      volumes:
+      - name: redis-pv-storage
+        persistentVolumeClaim:
+          claimName: redis-pv-claim
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cip
+  namespace: websocket-scale
+spec:
+  selector:
+    app: redis
+  type: ClusterIP
+  ports:
+  - name: redis-cip
+    protocol: TCP
+    port: 6379
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: redis-pv-volume
+  namespace: websocket-scale
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/tmp/redis-volume"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pv-claim
+  namespace: websocket-scale
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: websocketserver
+  name: websocketserver
+  namespace: websocket-scale
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: websocketserver
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: websocketserver
+    spec:
+      containers:
+      - image: jpbraga/wss
+        name: wss
+        env:
+        - name: REDIS_HOST
+          value: "redis-cip"
+        - name: EVENT_CONNECTED_URL
+          value: "https://5d092e8e034e50001401101b.mockapi.io/api/mock/connected"
+        - name: EVENT_DISCONNECTED_URL
+          value: "https://5d092e8e034e50001401101b.mockapi.io/api/mock/disconnected"
+        - name: EVENT_MESSAGE_URL
+          value: "https://5d092e8e034e50001401101b.mockapi.io/api/mock/message"
+        - name: JWT_SECRET
+          value: "n5GySGhWlN9pWQBvmrnmJdKxmw-JTX0lKBSEYpYuOZY"
+        - name: SERVER_QUERY
+          value: "1"
+        - name: JWT_IDENTIFIER
+          value: "uid"
+        ports:
+        - containerPort: 8080
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 128m
+            memory: 128Mi
+          limits:
+            cpu: 256m
+            memory: 256Mi
+      initContainers:
+      - name: init-redis
+        image: busybox
+        command: ['sh', '-c', 'until nslookup redis-cip; do echo waiting for redis; sleep 2; done;']
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: websocketserver-cip
+  namespace: websocket-scale
+spec:
+  selector:
+    app: websocketserver
+  type: ClusterIP
+  ports:
+  - name: websocketserver-cip
+    protocol: TCP
+    port: 8080
+  - name: websocketserver-cip-rest
+    protocol: TCP
+    port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: websocketserver-lb
+  namespace: websocket-scale
+spec:
+  selector:
+    app: websocketserver
+  type: LoadBalancer
+  ports:
+  - name: websocketserver-lb
+    protocol: TCP
+    port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: serverfinder
+  name: serverfinder
+  namespace: websocket-scale
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: serverfinder
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: serverfinder
+    spec:
+      containers:
+      - image: jpbraga/serverfinder
+        name: serverfinder
+        env:
+        - name: REDIS_HOST
+          value: "redis-cip"
+        - name: JWT_IDENTIFIER
+          value: "uid"
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: 128m
+            memory: 128Mi
+          limits:
+            cpu: 256m
+            memory: 256Mi
+      initContainers:
+      - name: init-redis
+        image: busybox
+        command: ['sh', '-c', 'until nslookup redis-cip; do echo waiting for redis; sleep 2; done;']
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: serverfinder-cip
+  namespace: websocket-scale
+spec:
+  selector:
+    app: serverfinder
+  type: ClusterIP
+  ports:
+  - name: serverfinder-cip
+    protocol: TCP
+    port: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: serverfinder-lb
+  namespace: websocket-scale
+spec:
+  selector:
+    app: serverfinder
+  type: LoadBalancer
+  ports:
+  - name: serverfinder-lb
+    protocol: TCP
+    port: 3000
+---
