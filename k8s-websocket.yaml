@@ -270,6 +270,13 @@ spec:
               value: "redis-cip"
             - name: EVENT_DISCONNECTED_URL
               value: "http://wss-external.mocklab.io/disconnected"
+            resources:
+              requests:
+                cpu: 128m
+                memory: 128Mi
+              limits:
+                cpu: 256m
+                memory: 256Mi
           initContainers:
           - name: init-redis
             image: busybox
