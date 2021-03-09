@@ -72,7 +72,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: "/tmp/redis-volume"
+    path: "/tmp/redis-storage"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -109,6 +109,14 @@ spec:
       - image: jpbraga/wss
         name: wss
         env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: REDIS_HOST
           value: "redis-cip"
         - name: EVENT_CONNECTED_URL
@@ -243,3 +251,27 @@ spec:
     protocol: TCP
     port: 3000
 ---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: wsshealthchecker
+  namespace: websocket-scale
+spec:
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - image: jpbraga/wsshealthchecker
+            name: wsshealthchecker
+            env:
+            - name: REDIS_HOST
+              value: "redis-cip"
+            - name: EVENT_DISCONNECTED_URL
+              value: "http://wss-external.mocklab.io/disconnected"
+          initContainers:
+          - name: init-redis
+            image: busybox
+            command: ['sh', '-c', 'until nslookup redis-cip; do echo waiting for redis; sleep 2; done;']
+          restartPolicy: OnFailure
