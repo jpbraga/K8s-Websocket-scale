@@ -122,11 +122,11 @@ spec:
         - name: REDIS_HOST
           value: "redis-cip"
         - name: EVENT_CONNECTED_URL
-          value: "http://wss-external.mocklab.io/connected"
+          value: "http://10.1.2.140:8081/connected"
         - name: EVENT_DISCONNECTED_URL
-          value: "http://wss-external.mocklab.io/disconnected"
+          value: "http://10.1.2.140:8081/disconnected"
         - name: EVENT_MESSAGE_URL
-          value: "http://wss-external.mocklab.io/message"
+          value: "http://10.1.2.140:8081/sendMessage"
         - name: JWT_SECRET
           value: "n5GySGhWlN9pWQBvmrnmJdKxmw-JTX0lKBSEYpYuOZY"
         - name: SERVER_QUERY
@@ -170,6 +170,27 @@ spec:
     protocol: TCP
     port: 80
 ---
+#Not meant to be publicly accessible - backend integration purposes
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ws-serverfinder-proxy
+  namespace: websocket-scale
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /serverfinder(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: serverfinder-cip
+            port:
+              number: 3000
+---
+#Meant to be publicly accessible by the clients
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -182,13 +203,6 @@ spec:
   rules:
   - http:
       paths:
-      - path: /serverfinder(/|$)(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: serverfinder-cip
-            port:
-              number: 3000
       - path: /wss(/|$)(.*)
         pathType: Prefix
         backend:
